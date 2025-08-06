@@ -1,0 +1,96 @@
+{
+  description = "Ollama - Run large language models locally";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;  # Allow CUDA and other unfree packages
+          };
+        };
+      in
+      {
+        packages.default = pkgs.stdenv.mkDerivation rec {
+          pname = "ollama";
+          version = "0.11.3";
+
+          src = pkgs.fetchurl {
+            url = "https://github.com/ollama/ollama/releases/download/v${version}/ollama-linux-amd64.tgz";
+            sha256 = "03gnz7gpyakj9mylhf0x1wspy4kb6iffbdfjsq1k9j4gxk8wfjq0"; # You'll need to add the SHA256 hash here
+          };
+
+          nativeBuildInputs = with pkgs; [
+            autoPatchelfHook
+            makeWrapper
+          ];
+
+          # Tell autoPatchelfHook to ignore missing GPU libraries
+          autoPatchelfIgnoreMissingDeps = [
+            "libhipblas.so.2"
+            "librocblas.so.4"
+            "libamdhip64.so.6"
+            # "libcuda.so.1"
+          ];
+
+          buildInputs = with pkgs; [
+            stdenv.cc.cc.lib
+            glibc
+            zlib
+            # CUDA libraries (if you have CUDA support)
+            cudaPackages.cuda_cudart
+            cudaPackages.libcublas
+            # cudaPackages.cuda_driver
+          ];
+
+          sourceRoot = ".";
+
+          installPhase = ''
+            runHook preInstall
+            
+            mkdir -p $out/bin $out/lib/ollama
+            
+            # Install the main binary
+            cp bin/ollama $out/bin/
+            chmod +x $out/bin/ollama
+            
+            # Install all the shared libraries
+            cp -r lib/ollama/* $out/lib/ollama/
+            
+            # Make sure the binary can find the libraries
+            wrapProgram $out/bin/ollama \
+              --set LD_LIBRARY_PATH "$out/lib/ollama:${pkgs.lib.makeLibraryPath buildInputs}"
+            
+            runHook postInstall
+          '';
+
+          meta = with pkgs.lib; {
+            description = "Get up and running with large language models locally";
+            homepage = "https://ollama.ai";
+            license = licenses.mit;
+            platforms = [ "x86_64-linux" ];
+            maintainers = [ ];
+          };
+        };
+
+        # Create an app for easy running
+        apps.default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/ollama";
+        };
+
+        # Development shell
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            self.packages.${system}.default
+          ];
+        };
+      }
+    );
+}
