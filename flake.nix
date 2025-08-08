@@ -91,6 +91,19 @@
             self.packages.${system}.default
           ];
         };
+
+        services.default = {
+          description = "Ollama service";
+          after = [ "network-online.target" ];
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            ExecStart = "${self.packages.${system}.default}/bin/ollama serve";
+            Restart = "always";
+            RestartSec = "3s";
+            User = "ollama";
+            Group = "ollama";
+          };
+        };
       }
     );
 }
