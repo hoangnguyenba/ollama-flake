@@ -19,11 +19,11 @@
       {
         packages.default = pkgs.stdenv.mkDerivation rec {
           pname = "ollama";
-          version = "0.11.3";
+          version = "0.11.4";
 
           src = pkgs.fetchurl {
             url = "https://github.com/ollama/ollama/releases/download/v${version}/ollama-linux-amd64.tgz";
-            sha256 = "03gnz7gpyakj9mylhf0x1wspy4kb6iffbdfjsq1k9j4gxk8wfjq0"; # You'll need to add the SHA256 hash here
+            sha256 = "0czf1dw64zr8xq8s1jdvarzddqg90030v3z81lyimrplrjraz253";
           };
 
           nativeBuildInputs = with pkgs; [
