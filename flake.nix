@@ -15,9 +15,8 @@
             allowUnfree = true;  # Allow CUDA and other unfree packages
           };
         };
-      in
-      {
-        packages.default = pkgs.stdenv.mkDerivation rec {
+
+        ollama-pkg = pkgs.stdenv.mkDerivation rec {
           pname = "ollama";
           version = "0.11.4";
 
@@ -78,55 +77,57 @@
             maintainers = [ ];
           };
         };
+      in
+      {
+        packages.default = ollama-pkg;
 
         # Create an app for easy running
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/ollama";
+          program = "${ollama-pkg}/bin/ollama";
         };
 
         # Development shell
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            self.packages.${system}.default
+            ollama-pkg
           ];
         };
 
-        nixosModules.default = { config, lib, pkgs, ... }:
-          {
-            nixpkgs.overlays = [
-              (final: prev: {
-                ollama = self.packages.${system}.default;
-              })
-            ];
+        nixosModules.default = { config, lib, pkgs, ... }: {
+          nixpkgs.overlays = [
+            (final: prev: {
+              ollama = ollama-pkg;
+            })
+          ];
 
-            options.services.ollama = {
-              enable = lib.mkEnableOption "Enable the Ollama service";
+          options.services.ollama = {
+            enable = lib.mkEnableOption "Enable the Ollama service";
+          };
+
+          config = lib.mkIf config.services.ollama.enable {
+            users.users.ollama = {
+              isSystemUser = true;
+              group = "ollama";
+              home = "/var/lib/ollama";
+              createHome = true;
             };
+            users.groups.ollama = {};
 
-            config = lib.mkIf config.services.ollama.enable {
-              users.users.ollama = {
-                isSystemUser = true;
-                group = "ollama";
-                home = "/var/lib/ollama";
-                createHome = true;
-              };
-              users.groups.ollama = {};
-
-              systemd.services.ollama = {
-                description = "Ollama service";
-                after = [ "network-online.target" ];
-                wantedBy = [ "multi-user.target" ];
-                serviceConfig = {
-                  ExecStart = "${pkgs.ollama}/bin/ollama serve";
-                  Restart = "always";
-                  RestartSec = "3s";
-                  User = "ollama";
-                  Group = "ollama";
-                };
+            systemd.services.ollama = {
+              description = "Ollama service";
+              after = [ "network-online.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig = {
+                ExecStart = "${ollama-pkg}/bin/ollama serve";
+                Restart = "always";
+                RestartSec = "3s";
+                User = "ollama";
+                Group = "ollama";
               };
             };
           };
+        };
       }
     );
 }
