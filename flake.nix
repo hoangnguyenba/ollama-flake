@@ -6,7 +6,7 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -92,16 +92,32 @@
           ];
         };
 
-        services.default = {
-          description = "Ollama service";
-          after = [ "network-online.target" ];
-          wantedBy = [ "multi-user.target" ];
-          serviceConfig = {
-            ExecStart = "${self.packages.${system}.default}/bin/ollama serve";
-            Restart = "always";
-            RestartSec = "3s";
-            User = "ollama";
-            Group = "ollama";
+        nixosModules.default = { config, lib, ... }: {
+          options.services.ollama = {
+            enable = lib.mkEnableOption "Enable the Ollama service";
+          };
+
+          config = lib.mkIf config.services.ollama.enable {
+            users.users.ollama = {
+              isSystemUser = true;
+              group = "ollama";
+              home = "/var/lib/ollama";
+              createHome = true;
+            };
+            users.groups.ollama = {};
+
+            systemd.services.ollama = {
+              description = "Ollama service";
+              after = [ "network-online.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig = {
+                ExecStart = "${self.packages.${system}.default}/bin/ollama serve";
+                Restart = "always";
+                RestartSec = "3s";
+                User = "ollama";
+                Group = "ollama";
+              };
+            };
           };
         };
       }
