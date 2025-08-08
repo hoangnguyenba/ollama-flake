@@ -92,34 +92,41 @@
           ];
         };
 
-        nixosModules.default = { config, lib, ... }: {
-          options.services.ollama = {
-            enable = lib.mkEnableOption "Enable the Ollama service";
-          };
+        nixosModules.default = { config, lib, pkgs, ... }:
+          {
+            nixpkgs.overlays = [
+              (final: prev: {
+                ollama = self.packages.${system}.default;
+              })
+            ];
 
-          config = lib.mkIf config.services.ollama.enable {
-            users.users.ollama = {
-              isSystemUser = true;
-              group = "ollama";
-              home = "/var/lib/ollama";
-              createHome = true;
+            options.services.ollama = {
+              enable = lib.mkEnableOption "Enable the Ollama service";
             };
-            users.groups.ollama = {};
 
-            systemd.services.ollama = {
-              description = "Ollama service";
-              after = [ "network-online.target" ];
-              wantedBy = [ "multi-user.target" ];
-              serviceConfig = {
-                ExecStart = "${self.packages.${system}.default}/bin/ollama serve";
-                Restart = "always";
-                RestartSec = "3s";
-                User = "ollama";
-                Group = "ollama";
+            config = lib.mkIf config.services.ollama.enable {
+              users.users.ollama = {
+                isSystemUser = true;
+                group = "ollama";
+                home = "/var/lib/ollama";
+                createHome = true;
+              };
+              users.groups.ollama = {};
+
+              systemd.services.ollama = {
+                description = "Ollama service";
+                after = [ "network-online.target" ];
+                wantedBy = [ "multi-user.target" ];
+                serviceConfig = {
+                  ExecStart = "${pkgs.ollama}/bin/ollama serve";
+                  Restart = "always";
+                  RestartSec = "3s";
+                  User = "ollama";
+                  Group = "ollama";
+                };
               };
             };
           };
-        };
       }
     );
 }
